@@ -82,7 +82,7 @@ Route::middleware(['ip.allow:config:api_restrictions,office'])->group(function (
 ```
 
 ### Global Middleware Registration
-You can register the middleware globally, or configure it manually using the static `configure()`-method, in your bootstrap/app.php file.
+You can register the middleware globally, or configure it manually using the static `configure()`-method, in your bootstrap/app.php file. 
 
 ```php
 use Illuminate\Foundation\Application;
@@ -94,12 +94,25 @@ return Application::configure(basePath: dirname(__DIR__))
         // Append globally with dynamic configuration
         $middleware->append(
             AllowIpAddress::configure(
-                allowed: ['10.0.0.0/8'],
+                allowed: ['office', '10.0.0.0/8'],
                 logLevel: 'all',
                 logChannel: 'security'
             )
         );
     })->create();
+```
+
+### Inline Middleware Configuration
+Use the middleware's static `configure`-method, and pass an instance directly to your routes/groups.
+
+```php
+use Skitlabs\IpRestriction\Http\Middleware\AllowIpAddresses;
+
+Route::get('/admin', [Controller::class, 'index'])
+    ->middleware(AllowIpAddresses::configure(
+        allowed: ['office', '127.0.0.1'], 
+        logLevel: 'all',
+    ));
 ```
 
 ## Configuration
@@ -118,6 +131,8 @@ return [
         'office'   => ['192.168.1.0/24'],
         'webhooks' => ['198.51.100.14', '2001:0db8:85a3::/64'],
         'public'   => ['0.0.0.0/0', '::/0'],
+        // Passing lists as strings is supported. Extra spaces or trailing commas are trimmed 
+        'dynamic'  => env('ALLOWED_IPS', '192.168.1.50,  10.0.0.0/8, '), 
     ],
 
     // Configure the level and channel to log to

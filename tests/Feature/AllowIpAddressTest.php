@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\Test;
+use Skitlabs\IpRestriction\Http\Middleware\AllowIpAddresses;
 use Skitlabs\IpRestriction\Tests\TestCase;
 
 class AllowIpAddressTest extends TestCase
@@ -187,5 +188,26 @@ class AllowIpAddressTest extends TestCase
         $this->withServerVariables(['REMOTE_ADDR' => '9.9.9.9'])
             ->get($route)
             ->assertOk();
+    }
+
+    #[Test]
+    public function it_resolves_config_groups_passed_in_the_constructor(): void
+    {
+        $groupName = __FUNCTION__;
+        Config::set('ip_restriction.groups', [
+            $groupName => ['192.168.1.50'],
+        ]);
+
+        $route = '/'.__FUNCTION__;
+        Route::get($route, static fn (): string => 'success')
+            ->middleware([AllowIpAddresses::configure($groupName)]);
+
+        $this->withServerVariables(['REMOTE_ADDR' => '192.168.1.50'])
+            ->get($route)
+            ->assertOk();
+
+        $this->withServerVariables(['REMOTE_ADDR' => '8.8.8.8'])
+            ->get($route)
+            ->assertForbidden();
     }
 }

@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\IpUtils;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
-class AllowIpAddresses
+class AllowIpAddresses implements \Stringable
 {
     protected const LOG_LEVELS = ['all', 'allowed', 'denied', 'none'];
 
@@ -26,6 +26,8 @@ class AllowIpAddresses
 
     protected const CONFIG_PREFIX_DEFAULT = 'ip_restriction';
 
+    public const MIDDLEWARE_ALIAS = 'ip.allow';
+
     protected array $baseAllowed;
 
     protected ?string $baseLogLevel;
@@ -35,19 +37,19 @@ class AllowIpAddresses
     protected ?string $baseConfigPrefix;
 
     public function __construct(
-        array $allowed = [],
+        string|array $allowed = [],
         ?string $logLevel = null,
         ?string $logChannel = null,
         ?string $configPrefix = null
     ) {
-        $this->baseAllowed = $allowed;
+        $this->baseAllowed = $this->normalizeRules($allowed);
         $this->baseLogLevel = $logLevel;
         $this->baseLogChannel = $logChannel;
         $this->baseConfigPrefix = $configPrefix;
     }
 
     public static function configure(
-        array $allowed = [],
+        string|array $allowed = [],
         ?string $logLevel = null,
         ?string $logChannel = null,
         ?string $configPrefix = null
@@ -62,6 +64,8 @@ class AllowIpAddresses
      */
     public function handle(Request $request, Closure $next, string ...$rules): Response
     {
+        $rules = $this->normalizeRules($rules);
+
         [$logLevelOverride, $logChannelOverride, $configPrefixOverride, $ipRules] = $this->extractArguments($rules);
 
         $configPrefix = $configPrefixOverride ?? $this->baseConfigPrefix ?? static::CONFIG_PREFIX_DEFAULT;
@@ -70,8 +74,8 @@ class AllowIpAddresses
             return $next($request);
         }
 
-        $additionalAllowed = $this->processIpRules($ipRules, $configPrefix);
-        $allowed = array_merge($this->baseAllowed, $additionalAllowed);
+        $combinedRules = array_merge($this->baseAllowed, $ipRules);
+        $allowed = $this->processIpRules($combinedRules, $configPrefix);
 
         $logLevel = $logLevelOverride
             ?? $this->baseLogLevel
@@ -91,6 +95,33 @@ class AllowIpAddresses
         }
 
         $this->abort($configPrefix);
+    }
+
+    /** Recursively flatten, split, and trim rules into an array of clean strings. */
+    protected function normalizeRules(string|array $rules): array
+    {
+        $rules = is_string($rules) ? explode(',', $rules) : $rules;
+
+        $normalized = [];
+
+        foreach ($rules as $rule) {
+            if (is_array($rule)) {
+                array_push($normalized, ...$this->normalizeRules($rule));
+
+                continue;
+            }
+
+            if (is_string($rule)) {
+                foreach (explode(',', $rule) as $part) {
+                    $trimmed = trim($part);
+                    if ($trimmed !== '') {
+                        $normalized[] = $trimmed;
+                    }
+                }
+            }
+        }
+
+        return $normalized;
     }
 
     /**
@@ -153,8 +184,8 @@ class AllowIpAddresses
 
         foreach ($rules as $rule) {
             $configGroup = Config::get("{$configPrefix}.groups.{$rule}");
-            if (is_array($configGroup)) {
-                array_push($allowed, ...$configGroup);
+            if ($configGroup !== null) {
+                array_push($allowed, ...$this->normalizeRules($configGroup));
 
                 continue;
             }
@@ -250,5 +281,19 @@ class AllowIpAddresses
         $responseMessage = (string) Config::get("{$configPrefix}.response.message", '');
 
         throw new HttpException($responseCode, $responseMessage);
+    }
+
+    public function __toString(): string
+    {
+        $arguments = array_filter([
+            implode(',', $this->baseAllowed),
+            ($this->baseLogLevel ? self::LOG_LEVEL_PREFIX.$this->baseLogLevel : null),
+            ($this->baseLogChannel ? self::CHANNEL_PREFIX.$this->baseLogChannel : null),
+            ($this->baseConfigPrefix ? self::CONFIG_PREFIX.$this->baseConfigPrefix : null),
+        ]);
+
+        return empty($arguments)
+            ? static::MIDDLEWARE_ALIAS
+            : static::MIDDLEWARE_ALIAS.':'.implode(',', $arguments);
     }
 }

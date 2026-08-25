@@ -27,7 +27,7 @@ class IpRestrictionServiceProvider extends ServiceProvider
         }
 
         // Automatically register route middleware aliases
-        $router->aliasMiddleware('ip.allow', AllowIpAddresses::class);
-        $router->aliasMiddleware('ip.block', BlockIpAddresses::class);
+        $router->aliasMiddleware(AllowIpAddresses::MIDDLEWARE_ALIAS, AllowIpAddresses::class);
+        $router->aliasMiddleware(BlockIpAddresses::MIDDLEWARE_ALIAS, BlockIpAddresses::class);
     }
 }
