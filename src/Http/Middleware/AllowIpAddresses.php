@@ -16,15 +16,15 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class AllowIpAddresses
 {
-    protected const array LOG_LEVELS = ['all', 'allowed', 'denied', 'none'];
+    protected const LOG_LEVELS = ['all', 'allowed', 'denied', 'none'];
 
-    protected const string LOG_LEVEL_PREFIX = 'log:';
+    protected const LOG_LEVEL_PREFIX = 'log:';
 
-    protected const string CHANNEL_PREFIX = 'channel:';
+    protected const CHANNEL_PREFIX = 'channel:';
 
-    protected const string CONFIG_PREFIX = 'config:';
+    protected const CONFIG_PREFIX = 'config:';
 
-    protected const string CONFIG_PREFIX_DEFAULT = 'ip_restriction';
+    protected const CONFIG_PREFIX_DEFAULT = 'ip_restriction';
 
     protected array $baseAllowed;
 
