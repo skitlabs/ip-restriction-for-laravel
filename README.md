@@ -37,7 +37,7 @@ This will create a `config/ip_restriction.php` file in your application.
 The package automatically registers two middleware aliases:
 
 * `ip.allow` (Allow only the configured IPs, blocking all other requests)
-* `ip.block` (Allow all but the configured IPs, allowing all other requests)
+* `ip.block` (Block only the configured IPs, allowing all other requests)
 
 Apply the middleware directly to your routes or route groups in `routes/web.php` or `routes/api.php`:
 
@@ -58,7 +58,7 @@ Route::post('/login', [Controller::class, 'attempt'])
 ```
 
 ### Overrides
-You can dynamically override middleware behavior per group or route. These overrides are resolved _before_ evaluating other configuration.   
+You can dynamically override middleware behavior per group or route. These overrides are resolved _before_ evaluating other configuration. The _last_ override wins.   
 
 #### Logging
 ```php
@@ -99,7 +99,6 @@ return Application::configure(basePath: dirname(__DIR__))
                 logChannel: 'security'
             )
         );
-
     })->create();
 ```
 
@@ -118,7 +117,7 @@ return [
     'groups' => [
         'office'   => ['192.168.1.0/24'],
         'webhooks' => ['198.51.100.14', '2001:0db8:85a3::/64'],
-        'public'   => ['0.0.0.0/0', '::/0'], // Universal CIDR
+        'public'   => ['0.0.0.0/0', '::/0'],
     ],
 
     // Configure the level and channel to log to
