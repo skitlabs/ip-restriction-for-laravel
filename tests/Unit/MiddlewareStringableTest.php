@@ -31,7 +31,7 @@ class MiddlewareStringableTest extends TestCase
     public function it_casts_to_string_with_all_arguments_combined(): void
     {
         $middleware = AllowIpAddresses::configure(
-            allowed: ['10.0.0.0/8', 'partners'],
+            rules: ['10.0.0.0/8', 'partners'],
             logLevel: 'all',
             logChannel: 'security',
             configPrefix: 'api_restriction'

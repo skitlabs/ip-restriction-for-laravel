@@ -28,7 +28,7 @@ class AllowIpAddresses implements \Stringable
 
     public const MIDDLEWARE_ALIAS = 'ip.allow';
 
-    protected array $baseAllowed;
+    protected array $baseRules;
 
     protected ?string $baseLogLevel;
 
@@ -37,36 +37,36 @@ class AllowIpAddresses implements \Stringable
     protected ?string $baseConfigPrefix;
 
     public function __construct(
-        string|array $allowed = [],
+        string|array $rules = [],
         ?string $logLevel = null,
         ?string $logChannel = null,
         ?string $configPrefix = null
     ) {
-        $this->baseAllowed = $this->normalizeRules($allowed);
+        $this->baseRules = $this->normalizeRules($rules);
         $this->baseLogLevel = $logLevel;
         $this->baseLogChannel = $logChannel;
         $this->baseConfigPrefix = $configPrefix;
     }
 
     public static function configure(
-        string|array $allowed = [],
+        string|array $rules = [],
         ?string $logLevel = null,
         ?string $logChannel = null,
         ?string $configPrefix = null
     ): static {
-        return new static($allowed, $logLevel, $logChannel, $configPrefix);
+        return new static($rules, $logLevel, $logChannel, $configPrefix);
     }
 
     /**
      * Handle an incoming request.
      *
-     * @param  string  ...$rules  List of config group names, log level override, or IPs/CIDRs.
+     * @param  string  ...$arguments  List of config group names, log level override, or IPs/CIDRs.
      */
-    public function handle(Request $request, Closure $next, string ...$rules): Response
+    public function handle(Request $request, Closure $next, string ...$arguments): Response
     {
-        $rules = $this->normalizeRules($rules);
+        $arguments = $this->normalizeRules($arguments);
 
-        [$logLevelOverride, $logChannelOverride, $configPrefixOverride, $ipRules] = $this->extractArguments($rules);
+        [$logLevelOverride, $logChannelOverride, $configPrefixOverride, $rawRules] = $this->extractArguments($arguments);
 
         $configPrefix = $configPrefixOverride ?? $this->baseConfigPrefix ?? static::CONFIG_PREFIX_DEFAULT;
 
@@ -74,8 +74,8 @@ class AllowIpAddresses implements \Stringable
             return $next($request);
         }
 
-        $combinedRules = array_merge($this->baseAllowed, $ipRules);
-        $allowed = $this->processIpRules($combinedRules, $configPrefix);
+        $combinedRules = array_merge($this->baseRules, $rawRules);
+        $expandedRules = $this->processIpRules($combinedRules, $configPrefix);
 
         $logLevel = $logLevelOverride
             ?? $this->baseLogLevel
@@ -86,7 +86,7 @@ class AllowIpAddresses implements \Stringable
             ?? Config::get("{$configPrefix}.logging.channel", 'default');
 
         $clientIp = $this->clientIp($request, $configPrefix) ?? '0.0.0.0';
-        $isAllowed = $this->isAllowed($clientIp, $allowed);
+        $isAllowed = $this->isAllowed($clientIp, $expandedRules);
 
         $this->logRequest($request, $clientIp, $isAllowed, $logLevel, $logChannel);
 
@@ -180,18 +180,18 @@ class AllowIpAddresses implements \Stringable
 
     protected function processIpRules(array $rules, string $configPrefix): array
     {
-        $allowed = [];
+        $expandedList = [];
 
         foreach ($rules as $rule) {
             $configGroup = Config::get("{$configPrefix}.groups.{$rule}");
             if ($configGroup !== null) {
-                array_push($allowed, ...$this->normalizeRules($configGroup));
+                array_push($expandedList, ...$this->normalizeRules($configGroup));
 
                 continue;
             }
 
             if ($this->isValidIpOrCidr($rule)) {
-                $allowed[] = $rule;
+                $expandedList[] = $rule;
 
                 continue;
             }
@@ -202,7 +202,7 @@ class AllowIpAddresses implements \Stringable
             ));
         }
 
-        return $allowed;
+        return $expandedList;
     }
 
     protected function isValidIpOrCidr(string $rule): bool
@@ -270,9 +270,9 @@ class AllowIpAddresses implements \Stringable
             : $request->ip();
     }
 
-    protected function isAllowed(string $clientIp, array $allowed): bool
+    protected function isAllowed(string $clientIp, array $ipList): bool
     {
-        return IpUtils::checkIp($clientIp, $allowed);
+        return IpUtils::checkIp($clientIp, $ipList);
     }
 
     protected function abort(string $configPrefix): never
@@ -286,7 +286,7 @@ class AllowIpAddresses implements \Stringable
     public function __toString(): string
     {
         $arguments = array_filter([
-            implode(',', $this->baseAllowed),
+            implode(',', $this->baseRules),
             ($this->baseLogLevel ? self::LOG_LEVEL_PREFIX.$this->baseLogLevel : null),
             ($this->baseLogChannel ? self::CHANNEL_PREFIX.$this->baseLogChannel : null),
             ($this->baseConfigPrefix ? self::CONFIG_PREFIX.$this->baseConfigPrefix : null),

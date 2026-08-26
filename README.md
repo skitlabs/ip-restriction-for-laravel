@@ -94,7 +94,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Append globally with dynamic configuration
         $middleware->append(
             AllowIpAddress::configure(
-                allowed: ['office', '10.0.0.0/8'],
+                rules: ['office', '10.0.0.0/8'],
                 logLevel: 'all',
                 logChannel: 'security'
             )
@@ -110,7 +110,7 @@ use Skitlabs\IpRestriction\Http\Middleware\AllowIpAddresses;
 
 Route::get('/admin', [Controller::class, 'index'])
     ->middleware(AllowIpAddresses::configure(
-        allowed: ['office', '127.0.0.1'], 
+        rules: ['office', '127.0.0.1'], 
         logLevel: 'all',
     ));
 ```

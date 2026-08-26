@@ -8,8 +8,8 @@ class BlockIpAddresses extends AllowIpAddresses
 {
     public const MIDDLEWARE_ALIAS = 'ip.block';
 
-    protected function isAllowed(string $clientIp, array $allowed): bool
+    protected function isAllowed(string $clientIp, array $ipList): bool
     {
-        return ! parent::isAllowed($clientIp, $allowed);
+        return ! parent::isAllowed($clientIp, $ipList);
     }
 }
